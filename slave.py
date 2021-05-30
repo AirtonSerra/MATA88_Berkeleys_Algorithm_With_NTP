@@ -1,7 +1,4 @@
-# Python3 program imitating a client process
-
 from timeit import default_timer as timer
-# from dateutil import parser
 import threading
 import datetime
 import socket
@@ -10,12 +7,11 @@ import datetime
 from time import ctime
 from dateutil import parser
 
-HOST = '127.0.0.1'  # IP HOST de Loopback
-K = 1  # K is in microseconds
-
-# client thread function used to send time at client side
+HOST = '127.0.0.1'  # IP HOST
+K = 1 * 1000000  # K is in microseconds
 
 
+# function used to send time at client side
 def sendingTime(slave_client):
     # provide server with clock time at the client
     slave_client.send(str(datetime.datetime.now()).encode())
@@ -31,19 +27,18 @@ def startReceivingTime(slave_client):
         if (message == "REQUEST_TIME"):
            sendingTime(slave_client)
         else:
+            # get time of ntplib k.pool.ntp.org to comparison
             response = c.request('uk.pool.ntp.org', version=3)
             response.offset
             ntpDate = parser.parse(ctime(response.tx_time))
             serverDate =  parser.parse(message)
-
-            # ntpDate = datetime.datetime.strptime(ctime(response.tx_time), "%a %b %d %H:%M:%S %Y")
-            # serverDate = datetime.datetime.strptime(message, '%Y-%m-%d %H:%M:%S.%f')
 
             if ntpDate > serverDate:
                 dif = ntpDate - serverDate 
             else:
                 dif = serverDate - ntpDate 
             
+            # take the difference in microseconds and check if it is greater than k
             if (dif.seconds*1000000) + dif.microseconds > K:
                 print("Time change\nBefore: ", serverDate, " After: ", ntpDate, end="\n\n")
             else:
@@ -76,3 +71,7 @@ if __name__ == '__main__':
 
     # initialize the Slave / Client
     initiateSlaveClient(port=8080)
+
+
+# ntpDate = datetime.datetime.strptime(ctime(response.tx_time), "%a %b %d %H:%M:%S %Y")
+# serverDate = datetime.datetime.strptime(message, '%Y-%m-%d %H:%M:%S.%f')
