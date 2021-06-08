@@ -7,71 +7,80 @@ import datetime
 from time import ctime
 from dateutil import parser
 
-HOST = '127.0.0.1'  # IP HOST
-K = 1 * 1000000  # K is in microseconds
+HOST = '127.0.0.1'  # IP do HOST
+Port = 1234         # Porta que o processo de Master ficará escutando.
+K = 700000  # K em microsegundos
+TimeSended = None
 
 
-# function used to send time at client side
+# Função utilizada para enviar o tempo.
 def sendingTime(slave_client):
-    # provide server with clock time at the client
-    slave_client.send(str(datetime.datetime.now()).encode())
+    global TimeSended
+    TimeSended = str(datetime.datetime.now())
+    slave_client.send(TimeSended.encode())
 
 
-# client thread function used to receive synchronized time
+# Thread utilizada para receber as mensagens do Master.
 def startReceivingTime(slave_client):
-    c = ntplib.NTPClient()
+    global TimeSended
 
     while True:
-        # receive data from the server
+        # Recebe dados de Master.
         message = slave_client.recv(1024).decode()
         if (message == "REQUEST_TIME"):
            sendingTime(slave_client)
         else:
-            # get time of ntplib k.pool.ntp.org to comparison
-            response = c.request('uk.pool.ntp.org', version=3)
-            response.offset
-            ntpDate = parser.parse(ctime(response.tx_time))
             serverDate =  parser.parse(message)
 
-            if ntpDate > serverDate:
-                dif = ntpDate - serverDate 
+            # Pega o tempo do servidor NTP[k.pool.ntp.org] para comparação.
+            try:
+                c = ntplib.NTPClient()
+                response = c.request('uk.pool.ntp.org', version=3)
+                response.offset
+                ntpDate = parser.parse(ctime(response.tx_time))
+            except:
+                ntpDate = None
+           
+            if ntpDate != None:
+                if ntpDate > serverDate:
+                    dif = ntpDate - serverDate 
+                else:
+                    dif = serverDate - ntpDate
+
+
+            print("Tempo antes da sincronização: {}\nTempo depois da sincronização: {}\nTempo NTP: {}\nDiferença entre tempo sincronizado e tempo NTP: {}".format(TimeSended, serverDate, (ntpDate if ntpDate !=  None else "Servidor NTP não respondeu."), (dif if ntpDate !=  None else "Incalculável.")))
+
+            if ntpDate != None:
+                # Pega a diferença em microssegundos e verifique se é maior que K.
+                if (dif.seconds*1000000) + dif.microseconds > K:
+                    print("Essa diferença é maior que K(", K,"), nova sicronização necessária.",  end="\n\n")
+                else:
+                    print("Essa diferença não é maior que K(", K,").",  end="\n\n")
             else:
-                dif = serverDate - ntpDate 
-            
-            # take the difference in microseconds and check if it is greater than k
-            if (dif.seconds*1000000) + dif.microseconds > K:
-                print("Time change\nBefore: ", serverDate, " After: ", ntpDate, end="\n\n")
-            else:
-                print("Synchronized time at the client is: " + str(message), end="\n\n")
+                print("")
+
 
             
 
-
-# function used to Synchronize client process time
-def initiateSlaveClient(port=8080):
+# Função utilizada para iniciar o processo principal de Slave.
+def initiateSlaveClient():
 
     slave_client = socket.socket()
 
-    # connect to the clock server on local computer
-    slave_client.connect((HOST, port))
+    # Conecta-se ao processo de Master.
+    slave_client.connect((HOST, Port))
 
-    # send time for the first time
+    # Envia o tempo para master pela primeira vês para que Master guarde seu endereço.
     sendingTime(slave_client)
+    print("Salve iniciado e ao servidor {}:{}".format(str(HOST), str(Port)), end="\n\n")
 
-    # start recieving synchronized from server
-    print("Starting to recieving synchronized time\n")
+    # Lança a threde responsável por receber o tempo sincronizado de master e fazer as comparações.
     receive_time_thread = threading.Thread(
         target=startReceivingTime,
         args=(slave_client, ))
     receive_time_thread.start()
 
-
-# Driver function
 if __name__ == '__main__':
 
-    # initialize the Slave / Client
-    initiateSlaveClient(port=8080)
-
-
-# ntpDate = datetime.datetime.strptime(ctime(response.tx_time), "%a %b %d %H:%M:%S %Y")
-# serverDate = datetime.datetime.strptime(message, '%Y-%m-%d %H:%M:%S.%f')
+    # Lança o client Slave
+    initiateSlaveClient()
