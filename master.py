@@ -1,25 +1,24 @@
-from functools import reduce
 import threading
 import datetime
 import socket
 import time
 from dateutil import parser
 
-HOST = '127.0.0.1'  # IP HOST
+HOST = '127.0.0.1'  # IP do HOST.
+Port = 1234         # Porta que o processo ficará escutando.
 
-# datastructure used to store client address and clock data
+# Datastructure usado para guardar os enderessos dos clientes e o tempo.
 client_data = {}
 client_data_updated = 0
+timeToResync = 5
 
-''' nested thread function used to receive 
-    clock time from a connected client '''
-
+# Função de thread usada para receber a hora do relógio de um cliente conectado.
 
 def startRecieveingClockTime(connector, address):
     global client_data_updated
 
     while True:
-        # recieve clock time
+        # Recebendo tempo do slave.
         clock_time_string = connector.recv(1024).decode()
         clock_time = parser.parse(clock_time_string)
         clock_time_diff = datetime.datetime.now() - \
@@ -31,23 +30,21 @@ def startRecieveingClockTime(connector, address):
             "connector": connector
         }
 
-        # number of clients who sent their time
+        # Número de clientes que enviaram seu tempo.
         client_data_updated += 1
 
 
-''' master thread function used to open portal for 
-    accepting clients over given port '''
-
+# Função principal de thread usada para aceitar cliente em uma porta.
 
 def startConnecting(master_server):
 
-    # fetch clock time at slaves / clients
+    # Recebe a hora dos slaves
     while True:
-        # accepting a client / slave clock client
+        # Aceita um novo slave
         master_slave_connector, addr = master_server.accept()
         slave_address = str(addr[0]) + ":" + str(addr[1])
 
-        print(slave_address + " got connected successfully")
+        print(slave_address + " conectou-se com sucesso.")
 
         current_thread = threading.Thread(
             target=startRecieveingClockTime,
@@ -56,11 +53,8 @@ def startConnecting(master_server):
         current_thread.start()
 
 
-# subroutine function used to fetch average clock difference
+# Função usada para buscar a diferença média dos relógios.
 def getAverageClockDiff():
-
-    current_client_data = client_data.copy()
-
     time_difference_list = list(client['time_difference']
                                 for client_addr, client
                                 in client_data.items())
@@ -74,16 +68,14 @@ def getAverageClockDiff():
     return average_clock_difference
 
 
-''' master sync thread function used to generate 
-    cycles of clock synchronization in the network '''
-
+# Função thread usada para gerar ciclos de sincronização dos relógios dos slaves.
 
 def synchronizeAllClocks():
-    global client_data_updated
+    global client_data_updated, timeToResync
     while True:
 
-        print("New synchroniztion cycle started.")
-        print("Number of clients to be synchronized: " + str(len(client_data)))
+        print("Nova sincronização iniciada.")
+        print("Numero de clientes para ser sincronizados: " + str(len(client_data)))
 
         if len(client_data) > 0:
             client_data_updated = 0
@@ -108,52 +100,43 @@ def synchronizeAllClocks():
                                 synchronized_time).encode())
 
                         except Exception as e:
-                            print("Something went wrong while " +
-                                "sending synchronized time " +
-                                "through " + str(client_addr))
-
+                            print("Algo deu errado ao enviar a hora sincronizada para " + str(client_addr))
                 time.sleep(1)
         else:
-            print("No client data." +
-                  " Synchronization not applicable.")
+            print("Sem cliente conectados, sincronização não realizada.")
 
         print("\n\n")
 
-        time.sleep(5)
+        time.sleep(timeToResync)
 
 
-# function used to initiate the Clock Server / Master Node
-def initiateClockServer(port=8080):
+# Função utilizada para iniciar o processo principal de Master.
+def initiateClockServer():
 
     master_server = socket.socket()
     master_server.setsockopt(socket.SOL_SOCKET,
                              socket.SO_REUSEADDR, 1)
 
-    print("Socket at master node created successfully\n")
+    master_server.bind((HOST, Port))
 
-    master_server.bind((HOST, port))
-
-    # Start listening to requests
+    # Começa a escutar as requisições.
     master_server.listen(10)
-    print("Clock server started...\n")
+    print("Master iniciado e escutando a porta: ", Port)
 
-    # start making connections
-    print("Starting to make connections...\n")
+    # Lança a thread responsável por receber novas requisições.
     master_thread = threading.Thread(
         target=startConnecting,
         args=(master_server, ))
     master_thread.start()
 
-    # start synchroniztion
-    print("Starting synchronization parallely...\n")
+    # Lança a thead responsável pela sincronização dos telógios
     sync_thread = threading.Thread(
         target=synchronizeAllClocks,
         args=())
     sync_thread.start()
+    
 
-
-# Driver function
 if __name__ == '__main__':
 
-    # Trigger the Clock Server
-    initiateClockServer(port=8080)
+    # Lança o Master Server.
+    initiateClockServer()
