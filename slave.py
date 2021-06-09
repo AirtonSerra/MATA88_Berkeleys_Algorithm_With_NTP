@@ -72,7 +72,7 @@ def initiateSlaveClient():
 
     # Envia o tempo para master pela primeira vês para que Master guarde seu endereço.
     sendingTime(slave_client)
-    print("Salve iniciado e ao servidor {}:{}".format(str(HOST), str(Port)), end="\n\n")
+    print("Slave iniciado e conectado ao servidor {}:{}".format(str(HOST), str(Port)), end="\n\n")
 
     # Lança a threde responsável por receber o tempo sincronizado de master e fazer as comparações.
     receive_time_thread = threading.Thread(
