@@ -1,3 +1,7 @@
+# MATA88-T01-FUNDAMENTOS DE SISTEMAS DISTRIBUÍDOS
+# Alunos: Airton Serra Ribeiro Sena, Gabriela Bohana Ferreira Lima
+
+
 from timeit import default_timer as timer
 import threading
 import datetime
@@ -6,6 +10,7 @@ import ntplib
 import datetime
 from time import ctime
 from dateutil import parser
+
 
 HOST = '127.0.0.1'  # IP do HOST
 Port = 1234         # Porta que o processo de Master ficará escutando.
