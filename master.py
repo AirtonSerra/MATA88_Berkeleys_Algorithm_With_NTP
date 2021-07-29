@@ -1,4 +1,8 @@
 import threading
+# MATA88-T01-FUNDAMENTOS DE SISTEMAS DISTRIBUÍDOS
+# Alunos: Airton Serra Ribeiro Sena, Gabriela Bohana Ferreira Lima
+
+
 import datetime
 import socket
 import time
